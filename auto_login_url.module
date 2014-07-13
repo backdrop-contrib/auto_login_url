@@ -1,0 +1,206 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function custom_auto_login_menu() {
+  $items['autologin/%'] = array(
+    'title' => 'Auto Login',
+    'page callback' => 'auto_login_user',
+    'page arguments' => array(1),
+    'access callback' => 'auto_login_access',
+    'access arguments' => array(1),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Auto login the user.
+ */
+function auto_login_user($hash) {
+  //Get if the hash is in the db
+  $result = db_select('auto_login', 'a')
+    ->fields('a',array('uid','destination'))
+    ->condition('hash', $hash,'=')
+    ->execute()
+    ->fetchAssoc();
+
+  if (count($result)>0){
+    //Auto login the user
+    global $user;
+    $current_user = user_load($result['uid']);
+    // Update the user table timestamp noting user has logged in.
+    $current_user->login = REQUEST_TIME;
+    db_update('users')
+      ->fields(array('login' => $current_user->login))
+      ->condition('uid', $current_user->uid)
+      ->execute();
+
+    $user=$current_user;
+
+    // Regenerate the session ID to prevent against session fixation attacks.
+    drupal_session_regenerate();
+
+    // A generic array for arguments.
+    $url_array = array();
+
+    // Account for anchor.
+    $destination = urldecode($result['destination']);
+    if (strrpos($destination, '#') !== FALSE) {
+    	$fragment = substr($destination, strrpos($destination, '#') + 1);
+
+    	$url_array['fragment'] = $fragment;
+    	$url_array['alias'] = TRUE;
+
+    	$destination = substr($destination, 0, strrpos($destination, '#'));
+    }
+
+    if (count($url_array)) {
+    	drupal_goto($destination, $url_array);
+    }
+    else {
+    	drupal_goto($destination);
+    }
+
+  }
+  else{
+    drupal_goto('');
+  }
+}
+
+/**
+ * Access check for Auto login the user
+ */
+function auto_login_access($hash) {
+	return !empty($hash);
+}
+
+//Create an auto login hash on demand
+function create_auto_login_hash($uid, $destination, $absolute=false) {
+  //Generate hash
+  $hash=hash('sha256', $uid.'-'.time().'-'.$destination);
+
+  //Insert a new hash
+  $nid = db_insert('auto_login')
+  ->fields(array('uid', 'hash', 'destination','timestamp'))
+  ->values(array(
+    'uid' => $uid,
+    'hash' => $hash,
+    'destination' => $destination,
+  	'timestamp' => time(),
+  ))
+  ->execute();
+
+  //Check if link must be absolute
+  $absolute_path='';
+  if ($absolute){
+  	global $base_url;
+		$absolute_path=$base_url.'/';
+  }
+
+  return $absolute_path.'autologin/'.$hash;
+}
+
+/*
+ * Convert a whole text(E.g. mail with autologin links)
+ * The links must be absolute
+ */
+function convert_text_auto_login($uid, $text){
+
+  global $base_root;
+  //A pattern to convert links, but not images
+	$pattern='/'.str_replace('/', '\\/', $base_root).'\\/[a-z0-9A-Z%\/\._-]*/';
+
+  //Create a new object and pass the uid
+  $currentConvertion = new convert_text_auto_login_class;
+  $currentConvertion->uid = $uid;
+
+  //Replace text with regex/callback
+  return preg_replace_callback(
+      $pattern,
+      array(&$currentConvertion, 'replace'),
+      $text);
+}
+
+//Class to use for callback of the link replace
+class convert_text_auto_login_class
+{
+  function replace($matches) {
+    //make a new search to check that the link is not image
+    $pattern = '/(\.jpg|\.gif|\.png)/';
+    preg_match($pattern, $matches[0], $matchesNew);
+    if (count($matchesNew)>0){
+      return $matches[0];
+    }
+    else{
+      return create_auto_login_hash($this->uid, $matches[0], true);
+    }
+  }
+}
+
+/*
+ * Implements hook_cron
+ */
+//Deletes one month old links
+function custom_auto_login_cron() {
+  //delete over one month auto logins
+  $num_deleted = db_delete('auto_login')
+  ->condition('timestamp', date('c',time()-2592000),'<=')
+  ->execute();
+}
+
+/**
+ * Implements hook_token_info().
+ * Auto login token.
+ */
+function custom_auto_login_token_info() {
+  $info = array();
+
+  // Add any new tokens.
+  $info['tokens']['user']['auto-login-token'] = array(
+    'name' => t("Auto login"),
+    'description' => t('This an auto login token for the user.'),
+  );
+
+  $info['tokens']['user']['auto-login-account-token'] = array(
+    'name' => t("Auto login account"),
+    'description' => t('This an auto login for the user account page.'),
+  );
+
+  $info['tokens']['user']['auto-login-password-token'] = array(
+    'name' => t("Auto login change password"),
+    'description' => t('This an auto login for the change password page.'),
+  );
+
+  // Return them.
+  return $info;
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function custom_auto_login_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+  if ($type == 'user') {
+    $user = $data['user'];
+
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'auto-login-token':
+          $replacements[$original] = create_auto_login_hash($user->uid, 'home', true);
+        break;
+        case 'auto-login-account-token':
+          $replacements[$original] = create_auto_login_hash($user->uid, 'user/' . $user->uid . '/edit', true);
+        break;
+        case 'auto-login-password-token':
+          $replacements[$original] = create_auto_login_hash($user->uid, 'user/custom-change-password', true);
+        break;
+      }
+    }
+  }
+
+  // Return the replacements.
+  return $replacements;
+}

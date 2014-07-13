@@ -1,0 +1,5 @@
+name = Auto login
+description = Auto login, creates and uses tokens for auto login(E.g. through email)
+package = Custom
+core = 7.x
+version = "7.x-1.0"
