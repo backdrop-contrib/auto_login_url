@@ -22,8 +22,8 @@ function auto_login_url_menu() {
   );
 
   $items['admin/config/people/autologinurl'] = array(
-    'title' => t('Auto Login URL settings'),
-    'description' => t('Settings page for Auto Login URL'),
+    'title' => 'Auto Login URL settings',
+    'description' => 'Settings page for Auto Login URL',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('_auto_login_url_settings'),
     'access arguments' => array('administer auto login url'),
@@ -243,7 +243,6 @@ function auto_login_url_convert_text($uid, $text) {
 
   global $base_root;
   // A pattern to convert links, but not images.
-  // $pattern = '/' . str_replace('/', '\\/', $base_root) . '\\/[a-z0-9A-Z%?=&\[\]#\/\._-]*/';
   // I am not very sure about that.
   $pattern = '/' . str_replace('/', '\\/', $base_root) . '\\/[^\s^"^\']*/';
 
