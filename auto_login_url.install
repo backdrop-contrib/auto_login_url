@@ -6,39 +6,39 @@
  */
 
 /**
- * Implementation of hook_schema().
+ * Implements hook_schema().
  */
 function auto_login_url_schema() {
   $schema['auto_login_url'] = array(
     'description' => 'Auto login records.',
     'fields' => array(
-    	'id' => array(
+      'id' => array(
         'description' => 'ID of the record.',
         'type' => 'serial',
         'not null' => TRUE,
       ),
-    	'uid' => array(
+      'uid' => array(
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
         'description' => 'Primary Key: {users}.uid for user.',
       ),
-    	'hash' => array(
-    		'type' => 'varchar',
-      	'length' => 100,
-      	'not null' => FALSE,
-      	'default' => '',
-      	'description' => 'Unique hash tag for the generated link.',
-    	),
-    	'destination' => array(
-    		'type' => 'varchar',
-      	'length' => 1000,
-      	'not null' => FALSE,
-      	'default' => '',
-      	'description' => 'The destination after user login.',
-    	),
-    	'timestamp' => array(
+      'hash' => array(
+      	'type' => 'varchar',
+        'length' => 100,
+        'not null' => FALSE,
+        'default' => '',
+        'description' => 'Unique hash tag for the generated link.',
+      ),
+      'destination' => array(
+      	'type' => 'varchar',
+        'length' => 1000,
+        'not null' => FALSE,
+        'default' => '',
+        'description' => 'The destination after user login.',
+      ),
+      'timestamp' => array(
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
