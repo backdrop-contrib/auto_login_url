@@ -30,12 +30,12 @@ function auto_login_url_menu() {
 function _auto_login_url_page($hash) {
   // Get if the hash is in the db.
   $result = db_select('auto_login_url', 'a')
-    ->fields('a',array('uid', 'destination'))
+    ->fields('a', array('uid', 'destination'))
     ->condition('hash', hash('sha256', $hash), '=')
     ->execute()
     ->fetchAssoc();
 
-  if (count($result) > 0){
+  if (count($result) > 0) {
     // Auto login the user.
     global $user;
     $current_user = user_load($result['uid']);
@@ -60,23 +60,23 @@ function _auto_login_url_page($hash) {
 
     // Account for anchor.
     if (strrpos($destination, '#') !== FALSE) {
-    	$fragment = substr($destination, strrpos($destination, '#') + 1);
+      $fragment = substr($destination, strrpos($destination, '#') + 1);
 
-    	$url_array['fragment'] = $fragment;
-    	$url_array['alias'] = TRUE;
+      $url_array['fragment'] = $fragment;
+      $url_array['alias'] = TRUE;
 
-    	$destination = substr($destination, 0, strrpos($destination, '#'));
+      $destination = substr($destination, 0, strrpos($destination, '#'));
     }
 
     if (count($url_array)) {
-    	drupal_goto($destination, $url_array);
+      drupal_goto($destination, $url_array);
     }
     else {
-    	drupal_goto($destination);
+      drupal_goto($destination);
     }
 
   }
-  else{
+  else {
     drupal_goto('');
   }
 }
@@ -88,11 +88,11 @@ function _auto_login_url_page($hash) {
  *   Code that passes through URL.
  */
 function _auto_login_url_access($hash) {
-	return !empty($hash);
+  return !empty($hash);
 }
 
 /**
- * Create an auto login hash on demand
+ * Create an auto login hash on demand.
  *
  * @param int $uid
  *   User id.
@@ -104,14 +104,14 @@ function _auto_login_url_access($hash) {
  * @return string
  *   Autologin URL.
  */
-function auto_login_url_create($uid, $destination, $absolute = false) {
+function auto_login_url_create($uid, $destination, $absolute = FALSE) {
   // Generate hash.
   $hash = hash('sha256', $uid . '-' . time() . '-' . $destination);
   // Generate hash to save to DB.
   $hash_db = hash('sha256', $hash);
 
-  //Insert a new hash
-  $nid = db_insert('auto_login_url')
+  // Insert a new hash.
+  db_insert('auto_login_url')
     ->fields(array('uid', 'hash', 'destination', 'timestamp'))
     ->values(array(
         'uid' => $uid,
@@ -124,16 +124,15 @@ function auto_login_url_create($uid, $destination, $absolute = false) {
   // Check if link is absolute.
   $absolute_path = '';
   if ($absolute) {
-  	global $base_url;
-		$absolute_path = $base_url . '/';
+    global $base_url;
+    $absolute_path = $base_url . '/';
   }
 
-  return $absolute_path . 'autologinurl/' .$hash;
+  return $absolute_path . 'autologinurl/' . $hash;
 }
 
 /**
  * Convert a whole text(E.g. mail with autologin links).
- * The links must be absolute.
  *
  * @param int $uid
  *   User id.
@@ -147,15 +146,15 @@ function auto_login_url_convert_text($uid, $text) {
 
   global $base_root;
   // A pattern to convert links, but not images.
-	$pattern = '/' . str_replace('/', '\\/', $base_root) . '\\/[a-z0-9A-Z%\/\._-]*/';
+  $pattern = '/' . str_replace('/', '\\/', $base_root) . '\\/[a-z0-9A-Z%\/\._-]*/';
 
   // Create a new object and pass the uid.
-  $currentConvertion = new auto_login_url_convert_text_class($uid);
+  $current_conversion = new AutoLoginUrlConvertTextClass($uid);
 
   // Replace text with regex/callback.
   $text = preg_replace_callback(
     $pattern,
-    array(&$currentConvertion, 'replace'),
+    array(&$current_conversion, 'replace'),
     $text);
 
   return $text;
@@ -163,14 +162,30 @@ function auto_login_url_convert_text($uid, $text) {
 
 /**
  * Class to use for callback of link replacement.
+ *
  * @author Thanos
+ *
  */
-class auto_login_url_convert_text_class
-{
+class AutoLoginUrlConvertTextClass {
+
+  /**
+   * Constructor.
+   *
+   * @param int $uid
+   *   User ID.
+   */
   function __construct($uid) {
     $this->uid = $uid;
   }
 
+  /**
+   *
+   * @param array $matches
+   *   Matches array.
+   *
+   * @return string
+   *   Converted URL.
+   */
   function replace($matches) {
     // Make a new search to check that the link is not image.
     // I know, not very clean.
@@ -179,8 +194,8 @@ class auto_login_url_convert_text_class
     if (count($new_matches) > 0) {
       return $matches[0];
     }
-    else{
-      return auto_login_url_create($this->uid, $matches[0], true);
+    else {
+      return auto_login_url_create($this->uid, $matches[0], TRUE);
     }
   }
 }
@@ -190,7 +205,7 @@ class auto_login_url_convert_text_class
  */
 function auto_login_url_cron() {
   // Delete over one month auto logins.
-  $num_deleted = db_delete('auto_login')
+  db_delete('auto_login')
     ->condition('timestamp', date('c', time() - 2592000), '<=')
     ->execute();
 }
@@ -229,11 +244,11 @@ function auto_login_url_tokens($type, $tokens, array $data = array(), array $opt
     foreach ($tokens as $name => $original) {
       switch ($name) {
         case 'auto-login-url-token':
-          $replacements[$original] = auto_login_url_create($user->uid, 'home', true);
+          $replacements[$original] = auto_login_url_create($user->uid, 'home', TRUE);
           break;
 
         case 'auto-login-url-account-edit-token':
-          $replacements[$original] = auto_login_url_create($user->uid, 'user/' . $user->uid . '/edit', true);
+          $replacements[$original] = auto_login_url_create($user->uid, 'user/' . $user->uid . '/edit', TRUE);
           break;
 
       }
