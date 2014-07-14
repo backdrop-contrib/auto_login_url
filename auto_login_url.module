@@ -317,7 +317,7 @@ function auto_login_url_token_info() {
   $info = array();
 
   // Home token.
-  $info['tokens']['user']['auto-login-token'] = array(
+  $info['tokens']['user']['auto-login-url-token'] = array(
     'name' => t("Auto Login URL"),
     'description' => t('This an auto login token for the user.'),
   );
