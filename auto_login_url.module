@@ -164,7 +164,6 @@ function auto_login_url_convert_text($uid, $text) {
  * Class to use for callback of link replacement.
  *
  * @author Thanos
- *
  */
 class AutoLoginUrlConvertTextClass {
 
@@ -174,11 +173,12 @@ class AutoLoginUrlConvertTextClass {
    * @param int $uid
    *   User ID.
    */
-  function __construct($uid) {
+  public function __construct($uid) {
     $this->uid = $uid;
   }
 
   /**
+   * Replace each link in the text.
    *
    * @param array $matches
    *   Matches array.
@@ -186,7 +186,7 @@ class AutoLoginUrlConvertTextClass {
    * @return string
    *   Converted URL.
    */
-  function replace($matches) {
+  public function replace(array $matches) {
     // Make a new search to check that the link is not image.
     // I know, not very clean.
     $pattern = '/(\.jpg|\.gif|\.png)/';
