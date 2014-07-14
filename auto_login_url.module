@@ -2,19 +2,31 @@
 
 /**
  * @file
- * Install file.
+ * Main file for auto_login_url module.
  */
 
 /**
  * Implements hook_menu().
  */
 function auto_login_url_menu() {
+
+  $items = array();
+
   $items['autologinurl/%'] = array(
     'title' => 'Auto Login',
     'page callback' => '_auto_login_url_page',
     'page arguments' => array(1),
     'access callback' => '_auto_login_url_access',
     'access arguments' => array(1),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/config/people/autologinurl'] = array(
+    'title' => t('Auto Login URL settings'),
+    'description' => t('Settings page for Auto Login URL'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_auto_login_url_settings'),
+    'access arguments' => array('administer auto login url'),
     'type' => MENU_CALLBACK,
   );
 
@@ -31,7 +43,7 @@ function _auto_login_url_page($hash) {
   // Get if the hash is in the db.
   $result = db_select('auto_login_url', 'a')
     ->fields('a', array('uid', 'destination'))
-    ->condition('hash', hash('sha256', $hash), '=')
+    ->condition('hash', hash('sha256', $hash . variable_get_value('auto_login_url_secret')), '=')
     ->execute()
     ->fetchAssoc();
 
@@ -68,6 +80,22 @@ function _auto_login_url_page($hash) {
       $destination = substr($destination, 0, strrpos($destination, '#'));
     }
 
+    // Account for GET[] arguments.
+    if (strrpos($destination, '?') !== FALSE) {
+      $arguments = substr($destination, strrpos($destination, '?') + 1);
+
+      $arguments = explode('&', $arguments);
+      $arguments_array = array();
+      foreach ($arguments as $argument) {
+        $temp_array = explode('=', $argument);
+        $arguments_array[$temp_array[0]] = isset($temp_array[1]) ? $temp_array[1] : '';
+      }
+
+      $url_array['query'] = $arguments_array;
+
+      $destination = substr($destination, 0, strrpos($destination, '?'));
+    }
+
     if (count($url_array)) {
       drupal_goto($destination, $url_array);
     }
@@ -92,6 +120,75 @@ function _auto_login_url_access($hash) {
 }
 
 /**
+ * Settings form for Auto Login URL.
+ *
+ * @return object
+ *   Form object.
+ */
+function _auto_login_url_settings() {
+  $form = array();
+
+  // Secret word.
+  $form['auto_login_url_secret'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Secret word'),
+    '#required' => TRUE,
+    '#default_value' => variable_get_value('auto_login_url_secret'),
+    '#description' => t('Secret word to create hashes that are stored in DB.
+      Every time this changes all previous URLs are invalidated.'),
+  );
+
+  // Expiration.
+  $form['auto_login_url_expiration'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Expiration'),
+    '#required' => TRUE,
+    '#default_value' => variable_get_value('auto_login_url_expiration'),
+    '#description' => t('Expiration of URLs in seconds.'),
+    '#element_validate' => array('element_validate_integer_positive'),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Implements hook_permission().
+ */
+function auto_login_url_permission() {
+  return array(
+    'administer auto login url' => array(
+      'title' => t('Administer Auto Login URL settings'),
+      'description' => t('Perform administration tasks on Auto Login URL.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_variable_info().
+ */
+function auto_login_url_variable_info() {
+  $variables = array();
+
+  // Secret word to create hashes.
+  $variables['auto_login_url_secret'] = array(
+    'title' => t("Auto Login URL secret word"),
+    'default' => 'drupal',
+    'group' => 'auto_login_url',
+    'token' => FALSE,
+  );
+
+  // Default cron schedule to delete old auto logins.
+  $variables['auto_login_url_expiration'] = array(
+    'title' => t("Auto Login URL expiration"),
+    'default' => 2592000,
+    'group' => 'auto_login_url',
+    'token' => FALSE,
+  );
+
+  return $variables;
+}
+
+/**
  * Create an auto login hash on demand.
  *
  * @param int $uid
@@ -108,7 +205,7 @@ function auto_login_url_create($uid, $destination, $absolute = FALSE) {
   // Generate hash.
   $hash = hash('sha256', $uid . '-' . time() . '-' . $destination);
   // Generate hash to save to DB.
-  $hash_db = hash('sha256', $hash);
+  $hash_db = hash('sha256', $hash . variable_get_value('auto_login_url_secret'));
 
   // Insert a new hash.
   db_insert('auto_login_url')
@@ -146,7 +243,9 @@ function auto_login_url_convert_text($uid, $text) {
 
   global $base_root;
   // A pattern to convert links, but not images.
-  $pattern = '/' . str_replace('/', '\\/', $base_root) . '\\/[a-z0-9A-Z%\/\._-]*/';
+  // $pattern = '/' . str_replace('/', '\\/', $base_root) . '\\/[a-z0-9A-Z%?=&\[\]#\/\._-]*/';
+  // I am not very sure about that.
+  $pattern = '/' . str_replace('/', '\\/', $base_root) . '\\/[^\s^"^\']*/';
 
   // Create a new object and pass the uid.
   $current_conversion = new AutoLoginUrlConvertTextClass($uid);
@@ -205,8 +304,8 @@ class AutoLoginUrlConvertTextClass {
  */
 function auto_login_url_cron() {
   // Delete over one month auto logins.
-  db_delete('auto_login')
-    ->condition('timestamp', date('c', time() - 2592000), '<=')
+  db_delete('auto_login_url')
+    ->condition('timestamp', date('c', time() - variable_get_value('auto_login_url_expiration')), '<=')
     ->execute();
 }
 
