@@ -1,10 +1,15 @@
 <?php
 
 /**
+ * @file
+ * Install file.
+ */
+
+/**
  * Implementation of hook_schema().
  */
-function custom_auto_login_schema() {
-  $schema['auto_login'] = array(
+function auto_login_url_schema() {
+  $schema['auto_login_url'] = array(
     'description' => 'Auto login records.',
     'fields' => array(
     	'id' => array(

@@ -1,5 +1,6 @@
-name = Auto login
-description = Auto login, creates and uses tokens for auto login(E.g. through email)
-package = Custom
+name = Auto Login URL
+description = Auto login, creates and uses tokens for auto login.
+package = User
 core = 7.x
-version = "7.x-1.0"
+
+dependencies[] = token
