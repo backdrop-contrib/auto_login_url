@@ -342,7 +342,7 @@ function auto_login_url_tokens($type, $tokens, array $data = array(), array $opt
     foreach ($tokens as $name => $original) {
       switch ($name) {
         case 'auto-login-url-token':
-          $replacements[$original] = auto_login_url_create($user->uid, 'home', TRUE);
+          $replacements[$original] = auto_login_url_create($user->uid, '<front>', TRUE);
           break;
 
         case 'auto-login-url-account-edit-token':
