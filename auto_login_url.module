@@ -50,7 +50,7 @@ function auto_login_url_menu() {
 function _auto_login_url_page($hash) {
   // Get if the hash is in the db.
   $result = db_select('auto_login_url', 'a')
-    ->fields('a', array('uid', 'destination'))
+    ->fields('a', array('id', 'uid', 'destination'))
     ->condition('hash', hash('sha256', $hash . variable_get('auto_login_url_secret', 'drupal')), '=')
     ->execute()
     ->fetchAssoc();
@@ -71,6 +71,11 @@ function _auto_login_url_page($hash) {
 
     // Regenerate the session ID to prevent against session fixation attacks.
     drupal_session_regenerate();
+
+    // Delete auto login URL, if option checked.
+    if (variable_get('auto_login_url_delete_on_use', FALSE)) {
+      db_delete('auto_login_url')->condition('id', array($result['id']))->execute();
+    }
 
     // A generic array for arguments.
     $url_array = array();
@@ -154,6 +159,14 @@ function _auto_login_url_settings() {
     '#default_value' => variable_get('auto_login_url_expiration', 2592000),
     '#description' => t('Expiration of URLs in seconds.'),
     '#element_validate' => array('element_validate_integer_positive'),
+  );
+
+  // Delete URLs on use.
+  $form['auto_login_url_delete_on_use'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Delete on use'),
+    '#default_value' => variable_get('auto_login_url_delete_on_use', FALSE),
+    '#description' => t('Auto delete URLs after use.'),
   );
 
   return system_settings_form($form);
