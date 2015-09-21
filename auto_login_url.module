@@ -357,7 +357,7 @@ function auto_login_url_token_info() {
  */
 function auto_login_url_tokens($type, $tokens, array $data = array(), array $options = array()) {
   $replacements = array();
-  if ($type == 'user') {
+  if ($type == 'user' && isset($data['user'])) {
     $user = $data['user'];
 
     foreach ($tokens as $name => $original) {
