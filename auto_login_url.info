@@ -3,4 +3,6 @@ description = Auto login, creates and uses tokens for auto login.
 package = User
 core = 7.x
 
+configure = admin/config/people/autologinurl
+
 dependencies[] = token
