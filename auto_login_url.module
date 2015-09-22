@@ -74,10 +74,8 @@ function _auto_login_url_page($hash) {
     // or incorrectly does a redirect which would leave the old session in place.
     drupal_session_regenerate();
 
-    if ($user->uid > 0) {
-      $edit = array();
-      user_module_invoke('login', $edit, $user);
-    }
+    // Finalize the login process.
+    user_login_finalize();
 
     // Delete auto login URL, if option checked.
     if (variable_get('auto_login_url_delete_on_use', FALSE)) {
