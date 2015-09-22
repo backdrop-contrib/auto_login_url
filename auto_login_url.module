@@ -70,11 +70,20 @@ function _auto_login_url_page($hash) {
     $user = $current_user;
 
     // Regenerate the session ID to prevent against session fixation attacks.
+    // This is called before hook_user in case one of those functions fails
+    // or incorrectly does a redirect which would leave the old session in place.
     drupal_session_regenerate();
+
+    if ($user->uid > 0) {
+      $edit = array();
+      user_module_invoke('login', $edit, $user);
+    }
 
     // Delete auto login URL, if option checked.
     if (variable_get('auto_login_url_delete_on_use', FALSE)) {
-      db_delete('auto_login_url')->condition('id', array($result['id']))->execute();
+      db_delete('auto_login_url')
+        ->condition('id', array($result['id']))
+        ->execute();
     }
 
     // A generic array for arguments.
@@ -232,11 +241,11 @@ function auto_login_url_create($uid, $destination, $absolute = FALSE) {
   db_insert('auto_login_url')
     ->fields(array('uid', 'hash', 'destination', 'timestamp'))
     ->values(array(
-        'uid' => $uid,
-        'hash' => $hash_db,
-        'destination' => $destination,
-      	'timestamp' => time(),
-      ))
+      'uid' => $uid,
+      'hash' => $hash_db,
+      'destination' => $destination,
+      'timestamp' => time(),
+    ))
     ->execute();
 
   // Check if link is absolute.
