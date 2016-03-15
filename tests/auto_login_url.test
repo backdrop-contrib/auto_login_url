@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * @file
+ * Test Auto Login URL module works as expected.
+ */
+
+/**
+ * AutoLoginUrlTestCase Class.
+ */
+class AutoLoginUrlTestCase extends DrupalWebTestCase {
+
+  /**
+   * Test info function.
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Auto Login URL test',
+      'description' => 'Test Auto Login URL module works as expected.',
+      'group' => 'Auto Login URL',
+    );
+  }
+
+  /**
+   * Set-up function.
+   */
+  public function setUp() {
+    parent::setUp();
+    $this->resetAll();
+
+    module_enable(array(
+      'auto_login_url',
+    ), TRUE);
+    $this->resetAll();
+
+  }
+
+  /**
+   * Test token generation.
+   */
+  public function testAluTokenGenerationCheck() {
+
+    // Create user.
+    $user = $this->drupalCreateUser();
+
+    // Create an auto login url for this user.
+    $url = auto_login_url_create($user->uid, 'user/' . $user->uid);
+
+    debug('Generated URL is: ' . $url);
+
+    // Access url.
+    $this->drupalGet($url);
+
+    // Make assertions.
+    $this->assertResponse(200, t('User logged in successfully.'));
+    $this->assertText($user->name, t('User name is visible, hence user is logged in.'));
+
+    // Create another user and login again.
+    $user2 = $this->drupalCreateUser();
+
+    // Create an auto login url for this user.
+    $url = auto_login_url_create($user2->uid, 'user/' . $user2->uid);
+
+    debug('Generated URL is: ' . $url);
+
+    // Access url.
+    $this->drupalGet($url);
+
+    // Make assertions.
+    $this->assertResponse(200, t('User 2 logged in successfully.'));
+    $this->assertText($user2->name, t('User 2 name is visible, hence user is logged in.'));
+  }
+
+  /**
+   * Test token generation with different settings.
+   */
+  public function testAluSettingsCheck() {
+
+    // Change settings.
+    variable_set('auto_login_url_token_length', 6);
+    variable_set('auto_login_url_secret', 'new secret');
+    variable_set('auto_login_url_short_url', 'alu');
+
+    // Clear menu cache.
+    menu_rebuild();
+
+    // Create user.
+    $user = $this->drupalCreateUser();
+
+    // Create an auto login url for this user.
+    $url = auto_login_url_create($user->uid, 'user/' . $user->uid);
+
+    debug('Generated URL is: ' . $url);
+
+    // Access url.
+    $this->drupalGet($url);
+
+    // Make assertions.
+    $this->assertResponse(200, t('User logged in successfully.'));
+    $this->assertText($user->name, t('User name is visible, hence user is logged in.'));
+  }
+}
