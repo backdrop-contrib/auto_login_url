@@ -69,4 +69,5 @@ function auto_login_url_uninstall() {
   variable_del('auto_login_url_secret');
   variable_del('auto_login_url_expiration');
   variable_del('auto_login_url_delete_on_use');
+  variable_del('auto_login_url_short_url');
 }

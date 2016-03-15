@@ -13,7 +13,7 @@ function auto_login_url_menu() {
   $items = array();
 
   // Callback of autologin process.
-  $items['autologinurl/%'] = array(
+  $items[variable_get('auto_login_url_short_url', 'autologinurl') . '/%'] = array(
     'title' => 'Auto Login',
     'page callback' => '_auto_login_url_page',
     'page arguments' => array(1),
@@ -168,6 +168,15 @@ function _auto_login_url_settings() {
     '#element_validate' => array('element_validate_integer_positive'),
   );
 
+  // Short URL.
+  $form['auto_login_url_short_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Short URL'),
+    '#required' => TRUE,
+    '#default_value' => variable_get('auto_login_url_short_url', 'autologinurl'),
+    '#description' => t('Set URL prefix to use before random token.'),
+  );
+
   // Delete URLs on use.
   $form['auto_login_url_delete_on_use'] = array(
     '#type' => 'checkbox',
@@ -175,8 +184,18 @@ function _auto_login_url_settings() {
     '#default_value' => variable_get('auto_login_url_delete_on_use', FALSE),
     '#description' => t('Auto delete URLs after use.'),
   );
+  $form = system_settings_form($form);
+  $form['#submit'][] = '_auto_login_url_settings_submit';
 
-  return system_settings_form($form);
+  return $form;
+}
+
+/**
+ * Submit handler for the admin settings form.
+ */
+function _auto_login_url_settings_submit($form, &$form_state) {
+  // Reload hook_menu cache.
+  menu_rebuild();
 }
 
 /**
@@ -209,6 +228,13 @@ function auto_login_url_variable_info() {
   $variables['auto_login_url_expiration'] = array(
     'title' => t('Auto Login URL expiration'),
     'default' => 2592000,
+    'group' => 'auto_login_url',
+    'token' => FALSE,
+  );
+
+  $variables['auto_login_url_short_url'] = array(
+    'title' => t('Short URL'),
+    'default' => 'autologinurl',
     'group' => 'auto_login_url',
     'token' => FALSE,
   );
@@ -253,7 +279,7 @@ function auto_login_url_create($uid, $destination, $absolute = FALSE) {
     $absolute_path = $base_url . '/';
   }
 
-  return $absolute_path . 'autologinurl/' . $hash;
+  return $absolute_path . variable_get('auto_login_url_short_url', 'autologinurl') . '/' . $hash;
 }
 
 /**
