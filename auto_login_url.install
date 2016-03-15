@@ -60,3 +60,13 @@ function auto_login_url_schema() {
 
   return $schema;
 }
+
+/**
+ * Implements hook_uninstall().
+ */
+function auto_login_url_uninstall() {
+  // Delete variables.
+  variable_del('auto_login_url_secret');
+  variable_del('auto_login_url_expiration');
+  variable_del('auto_login_url_delete_on_use');
+}
