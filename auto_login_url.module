@@ -54,6 +54,7 @@ function _auto_login_url_page($hash) {
     variable_get('user_failed_login_ip_limit', 50), variable_get('user_failed_login_ip_window', 3600))
   ) {
     drupal_set_message(t('Sorry, too many failed login attempts from your IP address. This IP address is temporarily blocked. Try again later.'), 'error');
+    // Return access denied.
     drupal_access_denied();
 
     return;
@@ -144,7 +145,7 @@ function _auto_login_url_page($hash) {
         '@ip' => ip_address(),
         '@hash' => $hash
       ));
-
+    // Return access denied.
     drupal_access_denied();
 
     return;
