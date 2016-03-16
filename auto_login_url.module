@@ -301,51 +301,57 @@ function auto_login_url_variable_info() {
  * @return string
  *   Autologin URL.
  */
-function auto_login_url_create($uid, $destination, $absolute = FALSE) {
+function auto_login_url_create($uid = NULL, $destination = '', $absolute = FALSE) {
 
-  // Repeat until the hash that is saved in DB is unique.
-  $hash_helper = 0;
-  do {
-    // Generate hash.
-    $hash = hash('sha256', $uid . '-' . time() . '-' . $destination . '-' . $hash_helper);
+  if ($uid != NULL && is_numeric($uid) && $uid != 0) {
 
-    // Get substring.
-    $hash = substr($hash, 0, variable_get('auto_login_url_token_length', 64));
+    // Repeat until the hash that is saved in DB is unique.
+    $hash_helper = 0;
+    do {
+      // Generate hash.
+      $hash = hash('sha256', $uid . '-' . time() . '-' . $destination . '-' . $hash_helper);
 
-    // Generate hash to save to DB.
-    $hash_db = hash('sha256', $hash . variable_get('auto_login_url_secret', 'drupal'));
+      // Get substring.
+      $hash = substr($hash, 0, variable_get('auto_login_url_token_length', 64));
 
-    // Check hash is unique.
-    $result = db_select('auto_login_url', 'alu')
-      ->fields('alu', array('hash'))
-      ->condition('alu.hash', $hash_db)
-      ->execute()
-      ->rowCount();
+      // Generate hash to save to DB.
+      $hash_db = hash('sha256', $hash . variable_get('auto_login_url_secret', 'drupal'));
 
-    // Increment value in case there will be a next iteration.
-    $hash_helper++;
+      // Check hash is unique.
+      $result = db_select('auto_login_url', 'alu')
+        ->fields('alu', array('hash'))
+        ->condition('alu.hash', $hash_db)
+        ->execute()
+        ->rowCount();
 
-  } while ($result != 0);
+      // Increment value in case there will be a next iteration.
+      $hash_helper++;
 
-  // Insert a new hash.
-  db_insert('auto_login_url')
-    ->fields(array('uid', 'hash', 'destination', 'timestamp'))
-    ->values(array(
-      'uid' => $uid,
-      'hash' => $hash_db,
-      'destination' => $destination,
-      'timestamp' => time(),
-    ))
-    ->execute();
+    } while ($result != 0);
 
-  // Check if link is absolute.
-  $absolute_path = '';
-  if ($absolute) {
-    global $base_url;
-    $absolute_path = $base_url . '/';
+    // Insert a new hash.
+    db_insert('auto_login_url')
+      ->fields(array('uid', 'hash', 'destination', 'timestamp'))
+      ->values(array(
+        'uid' => $uid,
+        'hash' => $hash_db,
+        'destination' => $destination,
+        'timestamp' => time(),
+      ))
+      ->execute();
+
+    // Check if link is absolute.
+    $absolute_path = '';
+    if ($absolute) {
+      global $base_url;
+      $absolute_path = $base_url . '/';
+    }
+
+    return $absolute_path . variable_get('auto_login_url_short_url', 'autologinurl') . '/' . $hash;
   }
 
-  return $absolute_path . variable_get('auto_login_url_short_url', 'autologinurl') . '/' . $hash;
+  // Return empty string.
+  return '';
 }
 
 /**
