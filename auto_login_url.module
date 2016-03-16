@@ -48,6 +48,17 @@ function auto_login_url_menu() {
  *   Code that passes through URL.
  */
 function _auto_login_url_page($hash) {
+
+  // Check for flood events.
+  if (!flood_is_allowed('failed_login_attempt_ip',
+    variable_get('user_failed_login_ip_limit', 50), variable_get('user_failed_login_ip_window', 3600))
+  ) {
+    drupal_set_message(t('Sorry, too many failed login attempts from your IP address. This IP address is temporarily blocked. Try again later.'), 'error');
+    drupal_access_denied();
+
+    return;
+  }
+
   // Get if the hash is in the db.
   $result = db_select('auto_login_url', 'a')
     ->fields('a', array('id', 'uid', 'destination'))
@@ -55,7 +66,7 @@ function _auto_login_url_page($hash) {
     ->execute()
     ->fetchAssoc();
 
-  if (count($result) > 0) {
+  if ($result !== FALSE && count($result) > 0) {
     // Auto login the user.
     global $user;
     $current_user = user_load($result['uid']);
@@ -125,7 +136,18 @@ function _auto_login_url_page($hash) {
 
   }
   else {
-    drupal_goto('');
+    // Register flood event.
+    flood_register_event('failed_login_attempt_ip', variable_get('user_failed_login_ip_window', 3600));
+    // Log error.
+    watchdog('auto_login_url', 'Failed Auto Login URL from ip: @ip and hash: @hash',
+      array(
+        '@ip' => ip_address(),
+        '@hash' => $hash
+      ));
+
+    drupal_access_denied();
+
+    return;
   }
 }
 
