@@ -208,7 +208,7 @@ function _auto_login_url_settings() {
     '#default_value' => variable_get('auto_login_url_token_length', 64),
     '#description' => t('Length of generated URL token.
       WARNING: Please understand the security implications of a short auto-login-url string before you change this value.
-      It has to be at least 6 digits.'),
+      It has to be between 6 and 64 digits.'),
     '#element_validate' => array('element_validate_integer_positive'),
   );
 
@@ -230,8 +230,9 @@ function _auto_login_url_settings() {
  */
 function _auto_login_url_settings_validate($form, &$form_state) {
   // Validate token length.
-  if ($form_state['values']['auto_login_url_token_length'] < 6) {
-    form_set_error('auto_login_url_token_length', t('Token length has to be at least 6 digits.'));
+  if ($form_state['values']['auto_login_url_token_length'] < 6
+    || $form_state['values']['auto_login_url_token_length'] > 64) {
+    form_set_error('auto_login_url_token_length', t('Token length has to be between 6 and 64 digits.'));
   }
 }
 
