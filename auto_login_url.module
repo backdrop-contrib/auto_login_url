@@ -145,10 +145,9 @@ function _auto_login_url_page($hash) {
         '@ip' => ip_address(),
         '@hash' => $hash
       ));
-    // Return access denied.
-    drupal_access_denied();
 
-    return;
+    // Return access denied.
+    return MENU_ACCESS_DENIED;
   }
 }
 
