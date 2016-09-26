@@ -429,7 +429,7 @@ class AutoLoginUrlConvertTextClass {
 function auto_login_url_cron() {
   // Delete over one month auto logins.
   db_delete('auto_login_url')
-    ->condition('timestamp', date('c', time() - variable_get('auto_login_url_expiration', 2592000)), '<=')
+    ->condition('timestamp', time() - variable_get('auto_login_url_expiration', 2592000), '<=')
     ->execute();
 }
 
