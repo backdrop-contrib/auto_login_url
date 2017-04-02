@@ -13,12 +13,12 @@ function auto_login_url_menu() {
   $items = array();
 
   // Callback of autologin process.
-  $items[variable_get('auto_login_url_short_url', 'autologinurl') . '/%'] = array(
+  $items[variable_get('auto_login_url_short_url', 'autologinurl') . '/%/%'] = array(
     'title' => 'Auto Login',
     'page callback' => '_auto_login_url_page',
-    'page arguments' => array(1),
+    'page arguments' => array(1, 2),
     'access callback' => '_auto_login_url_access',
-    'access arguments' => array(1),
+    'access arguments' => array(1, 2),
     'type' => MENU_CALLBACK,
   );
 
@@ -44,10 +44,12 @@ function auto_login_url_menu() {
 /**
  * Auto login the user.
  *
+ * @param integer $uid
+ *   User id.
  * @param string $hash
  *   Code that passes through URL.
  */
-function _auto_login_url_page($hash) {
+function _auto_login_url_page($uid, $hash) {
 
   // Check for flood events.
   if (!flood_is_allowed('failed_login_attempt_ip',
@@ -60,10 +62,19 @@ function _auto_login_url_page($hash) {
     return;
   }
 
+  // Get ALU secret.
+  $auto_login_url_secret = _auto_login_url_get_secret();
+
+  // Get user password.
+  $password = db_query("SELECT pass FROM {users} WHERE uid = :uid", array(':uid' => $uid))->fetchField();
+
+  // Create key.
+  $key = drupal_get_hash_salt() . $auto_login_url_secret . $password;
+
   // Get if the hash is in the db.
   $result = db_select('auto_login_url', 'a')
     ->fields('a', array('id', 'uid', 'destination'))
-    ->condition('hash', hash('sha256', $hash . variable_get('auto_login_url_secret', 'drupal')), '=')
+    ->condition('hash', drupal_hmac_base64($hash, $key), '=')
     ->execute()
     ->fetchAssoc();
 
@@ -137,14 +148,9 @@ function _auto_login_url_page($hash) {
 
   }
   else {
-    // Register flood event.
-    flood_register_event('failed_login_attempt_ip', variable_get('user_failed_login_ip_window', 3600));
-    // Log error.
-    watchdog('auto_login_url', 'Failed Auto Login URL from ip: @ip and hash: @hash',
-      array(
-        '@ip' => ip_address(),
-        '@hash' => $hash
-      ));
+
+    // Register flood event for this IP.
+    _auto_login_url_register_flood($hash);
 
     // Return access denied.
     return MENU_ACCESS_DENIED;
@@ -154,11 +160,56 @@ function _auto_login_url_page($hash) {
 /**
  * Access check for Auto login the user.
  *
+ * @param integer $uid
+ *   User id.
  * @param string $hash
  *   Code that passes through URL.
  */
-function _auto_login_url_access($hash) {
-  return !empty($hash);
+function _auto_login_url_access($uid, $hash) {
+
+  if (!empty($hash) && db_query("SELECT uid FROM {users} WHERE uid = :uid", array(':uid' => $uid))->fetchField()) {
+    return TRUE;
+  }
+  else {
+    // Register flood event for this IP.
+    _auto_login_url_register_flood($hash);
+
+    return FALSE;
+  }
+}
+
+/**
+ * Register flood event for this IP.
+ *
+ * @param string $hash
+ *   Code that passes through URL.
+ */
+function _auto_login_url_register_flood($hash) {
+
+  // Register flood event.
+  flood_register_event('failed_login_attempt_ip', variable_get('user_failed_login_ip_window', 3600));
+  // Log error.
+  watchdog('auto_login_url', 'Failed Auto Login URL from ip: @ip and hash: @hash',
+    array(
+      '@ip' => ip_address(),
+      '@hash' => $hash
+    ));
+}
+
+/**
+ * Get secret key for ALU or create now.
+ */
+function _auto_login_url_get_secret() {
+  // Check if it exists.
+  $secret = variable_get('auto_login_url_secret', '');
+
+  // Create if it does not exist.
+  if ($secret == '') {
+    $secret = drupal_random_key();
+    variable_set('auto_login_url_secret', $secret);
+  }
+
+  return $secret;
 }
 
 /**
@@ -175,7 +226,7 @@ function _auto_login_url_settings() {
     '#type' => 'textfield',
     '#title' => t('Secret word'),
     '#required' => TRUE,
-    '#default_value' => variable_get('auto_login_url_secret', 'drupal'),
+    '#default_value' => _auto_login_url_get_secret(),
     '#description' => t('Secret word to create hashes that are stored in DB.
       Every time this changes all previous URLs are invalidated.'),
   );
@@ -207,7 +258,7 @@ function _auto_login_url_settings() {
     '#default_value' => variable_get('auto_login_url_token_length', 64),
     '#description' => t('Length of generated URL token.
       WARNING: Please understand the security implications of a short auto-login-url string before you change this value.
-      It has to be between 6 and 64 digits.'),
+      It has to be between 8 and 64 digits.'),
     '#element_validate' => array('element_validate_integer_positive'),
   );
 
@@ -229,9 +280,9 @@ function _auto_login_url_settings() {
  */
 function _auto_login_url_settings_validate($form, &$form_state) {
   // Validate token length.
-  if ($form_state['values']['auto_login_url_token_length'] < 6
+  if ($form_state['values']['auto_login_url_token_length'] < 8
     || $form_state['values']['auto_login_url_token_length'] > 64) {
-    form_set_error('auto_login_url_token_length', t('Token length has to be between 6 and 64 digits.'));
+    form_set_error('auto_login_url_token_length', t('Token length has to be between 8 and 64 digits.'));
   }
 }
 
@@ -264,7 +315,7 @@ function auto_login_url_variable_info() {
   // Secret word to create hashes.
   $variables['auto_login_url_secret'] = array(
     'title' => t('Auto Login URL secret word'),
-    'default' => 'drupal',
+    'default' => _auto_login_url_get_secret(),
     'group' => 'auto_login_url',
     'token' => FALSE,
   );
@@ -304,17 +355,29 @@ function auto_login_url_create($uid = NULL, $destination = '', $absolute = FALSE
 
   if ($uid != NULL && is_numeric($uid) && $uid != 0) {
 
+    // Get ALU secret.
+    $auto_login_url_secret = _auto_login_url_get_secret();
+
+    // Get user password.
+    $password = db_query("SELECT pass FROM {users} WHERE uid = :uid", array(':uid' => $uid))->fetchField();
+
+    // Create key.
+    $key = drupal_get_hash_salt() . $auto_login_url_secret . $password;
+
     // Repeat until the hash that is saved in DB is unique.
     $hash_helper = 0;
     do {
+
+      $data = $uid . microtime(TRUE). $destination . $hash_helper;
+
       // Generate hash.
-      $hash = hash('sha256', $uid . '-' . time() . '-' . $destination . '-' . $hash_helper);
+      $hash = drupal_hmac_base64($data, $key);
 
       // Get substring.
       $hash = substr($hash, 0, variable_get('auto_login_url_token_length', 64));
 
       // Generate hash to save to DB.
-      $hash_db = hash('sha256', $hash . variable_get('auto_login_url_secret', 'drupal'));
+      $hash_db = drupal_hmac_base64($hash, $key);
 
       // Check hash is unique.
       $result = db_select('auto_login_url', 'alu')
@@ -346,7 +409,7 @@ function auto_login_url_create($uid = NULL, $destination = '', $absolute = FALSE
       $absolute_path = $base_url . '/';
     }
 
-    return $absolute_path . variable_get('auto_login_url_short_url', 'autologinurl') . '/' . $hash;
+    return $absolute_path . variable_get('auto_login_url_short_url', 'autologinurl') . '/' . $uid . '/' . $hash;
   }
 
   // Return empty string.

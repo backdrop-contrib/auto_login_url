@@ -71,3 +71,10 @@ function auto_login_url_uninstall() {
   variable_del('auto_login_url_delete_on_use');
   variable_del('auto_login_url_short_url');
 }
+
+/**
+ * Remove current secret URL, so a new one will be generated.
+ */
+function auto_login_url_update_7001() {
+  variable_del('auto_login_url_secret');
+}
