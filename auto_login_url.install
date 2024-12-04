@@ -71,4 +71,20 @@ function auto_login_url_update_last_removed() {
 /**
  * From variable to config.
  */
-// @todo
+function auto_login_url_update_1000() {
+  $config = config('auto_login_url.settings');
+  if (!$config->isNew()) {
+    return;
+  }
+  $config->set('auto_login_url_secret', update_variable_get('auto_login_url_secret', ''));
+  $config->set('auto_login_url_expiration', update_variable_get('auto_login_url_expiration', 2592000));
+  $config->set('auto_login_url_delete_on_use', update_variable_get('auto_login_url_delete_on_use', FALSE));
+  $config->set('auto_login_url_short_url', update_variable_get('auto_login_url_short_url', 'autologinurl'));
+  $config->set('auto_login_url_token_length', update_variable_get('auto_login_url_token_length', 64));
+  $config->save();
+  update_variable_del('auto_login_url_secret');
+  update_variable_del('auto_login_url_expiration');
+  update_variable_del('auto_login_url_delete_on_use');
+  update_variable_del('auto_login_url_short_url');
+  update_variable_del('auto_login_url_token_length');
+}
