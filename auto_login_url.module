@@ -434,6 +434,8 @@ function auto_login_url_convert_text($uid, $text) {
  */
 class AutoLoginUrlConvertTextClass {
 
+  public $uid;
+
   /**
    * Constructor.
    *

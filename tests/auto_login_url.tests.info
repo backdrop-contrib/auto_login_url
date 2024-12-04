@@ -1,0 +1,5 @@
+[AutoLoginUrlTestCase]
+name = 'Auto Login URL test'
+description = 'Test Auto Login URL module works as expected.'
+group = 'Auto Login URL'
+file = auto_login_url.test
