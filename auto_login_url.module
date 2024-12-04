@@ -243,9 +243,11 @@ function _auto_login_url_settings() {
 
   // Expiration.
   $form['auto_login_url_expiration'] = array(
-    '#type' => 'textfield',
+    '#type' => 'number',
     '#title' => t('Expiration'),
     '#required' => TRUE,
+    '#min' => 900,
+    '#max' => 5184000,
     '#default_value' => $config->get('auto_login_url_expiration'),
     '#description' => t('Expiration of URLs in seconds.'),
     '#element_validate' => array('element_validate_integer_positive'),
