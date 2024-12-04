@@ -10,7 +10,12 @@
  */
 class AutoLoginUrlConvertTextClass {
 
-  public $uid;
+  /**
+   * Account's user ID.
+   *
+   * @var int
+   */
+  protected $uid;
 
   /**
    * Constructor.
