@@ -1,11 +1,8 @@
 name = Auto Login URL
 description = Auto login, creates and uses tokens for auto login.
 package = User
-core = 7.x
+backdrop = 1.x
+type = module
+dependencies[] = user
 
 configure = admin/config/people/autologinurl
-
-files[] = tests/auto_login_url.test
-
-dependencies[] = token
-dependencies[] = user

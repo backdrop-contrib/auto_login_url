@@ -62,19 +62,13 @@ function auto_login_url_schema() {
 }
 
 /**
- * Implements hook_uninstall().
+ * Implements hook_update_last_removed().
  */
-function auto_login_url_uninstall() {
-  // Delete variables.
-  variable_del('auto_login_url_secret');
-  variable_del('auto_login_url_expiration');
-  variable_del('auto_login_url_delete_on_use');
-  variable_del('auto_login_url_short_url');
+function auto_login_url_update_last_removed() {
+  return 7001;
 }
 
 /**
- * Remove current secret URL, so a new one will be generated.
+ * From variable to config.
  */
-function auto_login_url_update_7001() {
-  variable_del('auto_login_url_secret');
-}
+// @todo

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file
  * Main file for auto_login_url module.
@@ -13,7 +12,7 @@ function auto_login_url_menu() {
   $items = array();
 
   // Callback of autologin process.
-  $items[variable_get('auto_login_url_short_url', 'autologinurl') . '/%/%'] = array(
+  $items[config_get('auto_login_url.settings', 'auto_login_url_short_url') . '/%/%'] = array(
     'title' => 'Auto Login',
     'page callback' => '_auto_login_url_page',
     'page arguments' => array(1, 2),
@@ -26,7 +25,7 @@ function auto_login_url_menu() {
   $items['admin/config/people/autologinurl'] = array(
     'title' => 'Auto Login URL settings',
     'description' => 'Settings page for Auto Login URL',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrop_get_form',
     'page arguments' => array('_auto_login_url_settings'),
     'access arguments' => array('administer auto login url'),
   );
@@ -52,12 +51,11 @@ function auto_login_url_menu() {
 function _auto_login_url_page($uid, $hash) {
 
   // Check for flood events.
-  if (!flood_is_allowed('failed_login_attempt_ip',
-    variable_get('user_failed_login_ip_limit', 50), variable_get('user_failed_login_ip_window', 3600))
-  ) {
-    drupal_set_message(t('Sorry, too many failed login attempts from your IP address. This IP address is temporarily blocked. Try again later.'), 'error');
+  $flood_config = config('user.flood');
+  if (!flood_is_allowed('failed_login_attempt_ip', $flood_config->get('flood_ip_limit'), $flood_config->get('flood_ip_window'))) {
+    backdrop_set_message(t('Sorry, too many failed login attempts from your IP address. This IP address is temporarily blocked. Try again later.'), 'error');
     // Return access denied.
-    drupal_access_denied();
+    backdrop_access_denied();
 
     return;
   }
@@ -69,12 +67,12 @@ function _auto_login_url_page($uid, $hash) {
   $password = db_query("SELECT pass FROM {users} WHERE uid = :uid", array(':uid' => $uid))->fetchField();
 
   // Create key.
-  $key = drupal_get_hash_salt() . $auto_login_url_secret . $password;
+  $key = backdrop_get_hash_salt() . $auto_login_url_secret . $password;
 
   // Get if the hash is in the db.
   $result = db_select('auto_login_url', 'a')
     ->fields('a', array('id', 'uid', 'destination'))
-    ->condition('hash', drupal_hmac_base64($hash, $key), '=')
+    ->condition('hash', backdrop_hmac_base64($hash, $key), '=')
     ->execute()
     ->fetchAssoc();
 
@@ -129,13 +127,13 @@ function _auto_login_url_page($uid, $hash) {
     // Regenerate the session ID to prevent against session fixation attacks.
     // This is called before hook_user in case one of those functions fails
     // or incorrectly does a redirect which would leave the old session in place.
-    drupal_session_regenerate();
+    backdrop_session_regenerate();
 
     // Finalize the login process.
     user_login_finalize();
 
     // Delete auto login URL, if option checked.
-    if (variable_get('auto_login_url_delete_on_use', FALSE)) {
+    if (config_get('auto_login_url.settings', 'auto_login_url_delete_on_use')) {
       db_delete('auto_login_url')
         ->condition('id', array($result['id']))
         ->execute();
@@ -148,10 +146,10 @@ function _auto_login_url_page($uid, $hash) {
     module_invoke_all('post_auto_login_url', $current_user, $destination);
 
     if (count($url_array)) {
-      drupal_goto($destination, $url_array);
+      backdrop_goto($destination, $url_array);
     }
     else {
-      drupal_goto($destination);
+      backdrop_goto($destination);
     }
 
   }
@@ -195,7 +193,7 @@ function _auto_login_url_access($uid, $hash) {
 function _auto_login_url_register_flood($hash) {
 
   // Register flood event.
-  flood_register_event('failed_login_attempt_ip', variable_get('user_failed_login_ip_window', 3600));
+  flood_register_event('failed_login_attempt_ip', config_get('user.flood', 'flood_ip_window'));
   // Log error.
   watchdog('auto_login_url', 'Failed Auto Login URL from ip: @ip and hash: @hash',
     array(
@@ -209,12 +207,14 @@ function _auto_login_url_register_flood($hash) {
  */
 function _auto_login_url_get_secret() {
   // Check if it exists.
-  $secret = variable_get('auto_login_url_secret', '');
+  $config = config('auto_login_url.settings');
+  $secret = $config->get('auto_login_url_secret');
 
   // Create if it does not exist.
-  if ($secret == '') {
-    $secret = drupal_random_key();
-    variable_set('auto_login_url_secret', $secret);
+  if (!$secret) {
+    $secret = backdrop_random_key();
+    $config->set('auto_login_url_secret', $secret);
+    $config->save();
   }
 
   return $secret;
@@ -228,6 +228,8 @@ function _auto_login_url_get_secret() {
  */
 function _auto_login_url_settings() {
   $form = array();
+  $form['#config'] = 'auto_login_url.settings';
+  $config = config('auto_login_url.settings');
 
   // Secret word.
   $form['auto_login_url_secret'] = array(
@@ -244,7 +246,7 @@ function _auto_login_url_settings() {
     '#type' => 'textfield',
     '#title' => t('Expiration'),
     '#required' => TRUE,
-    '#default_value' => variable_get('auto_login_url_expiration', 2592000),
+    '#default_value' => $config->get('auto_login_url_expiration'),
     '#description' => t('Expiration of URLs in seconds.'),
     '#element_validate' => array('element_validate_integer_positive'),
   );
@@ -254,16 +256,18 @@ function _auto_login_url_settings() {
     '#type' => 'textfield',
     '#title' => t('Short URL'),
     '#required' => TRUE,
-    '#default_value' => variable_get('auto_login_url_short_url', 'autologinurl'),
+    '#default_value' => $config->get('auto_login_url_short_url'),
     '#description' => t('Set URL prefix to use before random token.'),
   );
 
   // Token length.
   $form['auto_login_url_token_length'] = array(
-    '#type' => 'textfield',
+    '#type' => 'number',
     '#title' => t('Token length'),
     '#required' => TRUE,
-    '#default_value' => variable_get('auto_login_url_token_length', 64),
+    '#default_value' => $config->get('auto_login_url_token_length'),
+    '#min' => 8,
+    '#max' => 64,
     '#description' => t('Length of generated URL token.
       WARNING: Please understand the security implications of a short auto-login-url string before you change this value.
       It has to be between 8 and 64 digits.'),
@@ -274,24 +278,13 @@ function _auto_login_url_settings() {
   $form['auto_login_url_delete_on_use'] = array(
     '#type' => 'checkbox',
     '#title' => t('Delete on use'),
-    '#default_value' => variable_get('auto_login_url_delete_on_use', FALSE),
+    '#default_value' => $config->get('auto_login_url_delete_on_use'),
     '#description' => t('Auto delete URLs after use.'),
   );
   $form = system_settings_form($form);
   $form['#submit'][] = '_auto_login_url_settings_submit';
 
   return $form;
-}
-
-/**
- * Validate handler for the admin settings form.
- */
-function _auto_login_url_settings_validate($form, &$form_state) {
-  // Validate token length.
-  if ($form_state['values']['auto_login_url_token_length'] < 8
-    || $form_state['values']['auto_login_url_token_length'] > 64) {
-    form_set_error('auto_login_url_token_length', t('Token length has to be between 8 and 64 digits.'));
-  }
 }
 
 /**
@@ -315,35 +308,14 @@ function auto_login_url_permission() {
 }
 
 /**
- * Implements hook_variable_info().
+ * Implements hook_config_info().
  */
-function auto_login_url_variable_info() {
-  $variables = array();
-
-  // Secret word to create hashes.
-  $variables['auto_login_url_secret'] = array(
-    'title' => t('Auto Login URL secret word'),
-    'default' => _auto_login_url_get_secret(),
-    'group' => 'auto_login_url',
-    'token' => FALSE,
+function auto_login_url_config_info() {
+  $prefixes['auto_login_url.settings'] = array(
+    'label' => t('Auto Login URL settings'),
+    'group' => t('Configuration'),
   );
-
-  // Default cron schedule to delete old auto logins.
-  $variables['auto_login_url_expiration'] = array(
-    'title' => t('Auto Login URL expiration'),
-    'default' => 2592000,
-    'group' => 'auto_login_url',
-    'token' => FALSE,
-  );
-
-  $variables['auto_login_url_short_url'] = array(
-    'title' => t('Short URL'),
-    'default' => 'autologinurl',
-    'group' => 'auto_login_url',
-    'token' => FALSE,
-  );
-
-  return $variables;
+  return $prefixes;
 }
 
 /**
@@ -362,6 +334,7 @@ function auto_login_url_variable_info() {
 function auto_login_url_create($uid = NULL, $destination = '', $absolute = FALSE) {
 
   if ($uid != NULL && is_numeric($uid) && $uid != 0) {
+    $config = config('auto_login_url.settings');
 
     // Get ALU secret.
     $auto_login_url_secret = _auto_login_url_get_secret();
@@ -370,7 +343,7 @@ function auto_login_url_create($uid = NULL, $destination = '', $absolute = FALSE
     $password = db_query("SELECT pass FROM {users} WHERE uid = :uid", array(':uid' => $uid))->fetchField();
 
     // Create key.
-    $key = drupal_get_hash_salt() . $auto_login_url_secret . $password;
+    $key = backdrop_get_hash_salt() . $auto_login_url_secret . $password;
 
     // Repeat until the hash that is saved in DB is unique.
     $hash_helper = 0;
@@ -379,13 +352,13 @@ function auto_login_url_create($uid = NULL, $destination = '', $absolute = FALSE
       $data = $uid . microtime(TRUE). $destination . $hash_helper;
 
       // Generate hash.
-      $hash = drupal_hmac_base64($data, $key);
+      $hash = backdrop_hmac_base64($data, $key);
 
       // Get substring.
-      $hash = substr($hash, 0, variable_get('auto_login_url_token_length', 64));
+      $hash = substr($hash, 0, $config->get('auto_login_url_token_length'));
 
       // Generate hash to save to DB.
-      $hash_db = drupal_hmac_base64($hash, $key);
+      $hash_db = backdrop_hmac_base64($hash, $key);
 
       // Check hash is unique.
       $result = db_select('auto_login_url', 'alu')
@@ -417,7 +390,7 @@ function auto_login_url_create($uid = NULL, $destination = '', $absolute = FALSE
       $absolute_path = $base_url . '/';
     }
 
-    return $absolute_path . variable_get('auto_login_url_short_url', 'autologinurl') . '/' . $uid . '/' . $hash;
+    return $absolute_path . $config->get('auto_login_url_short_url') . '/' . $uid . '/' . $hash;
   }
 
   // Return empty string.
@@ -500,7 +473,7 @@ class AutoLoginUrlConvertTextClass {
 function auto_login_url_cron() {
   // Delete over one month auto logins.
   db_delete('auto_login_url')
-    ->condition('timestamp', time() - variable_get('auto_login_url_expiration', 2592000), '<=')
+    ->condition('timestamp', time() - config_get('auto_login_url.settings', 'auto_login_url_expiration'), '<=')
     ->execute();
 }
 

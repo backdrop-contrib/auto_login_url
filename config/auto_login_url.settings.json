@@ -1,0 +1,8 @@
+{
+  "_config_name": "auto_login_url.settings",
+  "auto_login_url_secret": "",
+  "auto_login_url_expiration": 2592000,
+  "auto_login_url_delete_on_use": false,
+  "auto_login_url_short_url": "autologinurl",
+  "auto_login_url_token_length": 64
+}
