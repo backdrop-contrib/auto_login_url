@@ -14,6 +14,14 @@ auto_login_url_convert_text($uid, $text)
 ```
 To convert all links of a text to auto login for this user
 
+Also there are two tokens for accounts (Current user):
+
+- Auto Login URL: `['auto-login-url-token']`
+- Auto Login URL account edit: `['auto-login-url-account-edit-token']`
+
+These may be used in mass emailing modules or anywhere user tokens are
+available, for example with Rules.
+
 See also the auto_login_url_token module.
 
 ## Installation
