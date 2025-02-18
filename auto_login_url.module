@@ -250,7 +250,6 @@ function _auto_login_url_settings() {
     '#max' => 5184000,
     '#default_value' => $config->get('auto_login_url_expiration'),
     '#description' => t('Expiration of URLs in seconds.'),
-    '#element_validate' => array('element_validate_integer_positive'),
   );
 
   // Short URL.
@@ -273,7 +272,6 @@ function _auto_login_url_settings() {
     '#description' => t('Length of generated URL token.
       WARNING: Please understand the security implications of a short auto-login-url string before you change this value.
       It has to be between 8 and 64 digits.'),
-    '#element_validate' => array('element_validate_integer_positive'),
   );
 
   // Delete URLs on use.
