@@ -247,7 +247,7 @@ function _auto_login_url_settings() {
     '#title' => t('Expiration'),
     '#required' => TRUE,
     '#min' => 900,
-    '#max' => 5184000,
+    '#max' => 7776000,
     '#default_value' => $config->get('auto_login_url_expiration'),
     '#description' => t('Expiration of URLs in seconds.'),
   );
